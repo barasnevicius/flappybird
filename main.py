@@ -2,159 +2,179 @@ import pygame, random
 from pygame.locals import *
 from pygame.sprite import spritecollide
 
-SCREEN_WIDTH = 400
-SCREEN_HEIGHT = 800
-SPEED = 10
-GRAVITY = 1
-GAME_SPEED = 10
-GROUND_WIDTH = 2 * SCREEN_WIDTH
-GROUND_HEIGHT = 100
-PIPE_WIDTH = 80
-PIPE_HEIGHT = 500
-PIPE_GAP = 200
-class Bird(pygame.sprite.Sprite):
-    def __init__(self):
-        pygame.sprite.Sprite.__init__(self)
+def main():
+    class Passaro(pygame.sprite.Sprite):
+        def __init__(self):
+            pygame.sprite.Sprite.__init__(self)
 
-        self.images = [pygame.image.load('assets/yellowbird-upflap.png').convert_alpha(),
-                       pygame.image.load('assets/yellowbird-midflap.png').convert_alpha(),
-                       pygame.image.load('assets/yellowbird-downflap.png').convert_alpha()]
+            # IMAGENS DO PASSARO DESCONSIDERANDO ESPAÇOS EM BRANCO DA IMAGEM PNG
+            self.imagens = [pygame.image.load('assets/yellowbird-upflap.png').convert_alpha(),
+                        pygame.image.load('assets/yellowbird-midflap.png').convert_alpha(),
+                        pygame.image.load('assets/yellowbird-downflap.png').convert_alpha()]
 
-        self.speed = SPEED
+            self.velocidade = VELOCIDADE_PASSARO
+            self.imagem_atual = 0
+            self.imagem = pygame.image.load('assets/yellowbird-upflap.png').convert_alpha()
+            self.mask = pygame.mask.from_surface(self.imagem)
+            self.rect = self.imagem.get_rect()
 
-        self.current_image = 0
+            # MEIO DA TELA
+            self.rect[0] = LARGURA_TELA / 2
+            self.rect[1] = ALTURA_TELA / 2
 
-        self.image = pygame.image.load('assets/yellowbird-upflap.png').convert_alpha()
-        self.mask = pygame.mask.from_surface(self.image)
+        def update(self):
+            self.imagem_atual = (self.imagem_atual + 1) % 3
+            self.image = self.imagens[self.imagem_atual]
 
-        self.rect = self.image.get_rect()
-        self.rect[0] = SCREEN_WIDTH / 2
-        self.rect[1] = SCREEN_HEIGHT / 2
+            self.velocidade += GRAVIDADE_PASSARO
 
-    def update(self):
-        self.current_image = (self.current_image + 1) % 3
-        self.image = self.images[self.current_image]
+            self.rect[1] += self.velocidade
 
-        self.speed += GRAVITY
+        def voar(self):
+            self.velocidade = -VELOCIDADE_PASSARO
 
-        # UPDATE HEIGHT
-        self.rect[1] += self.speed
+    class Piso(pygame.sprite.Sprite):
+        def __init__(self, xpos):
+            pygame.sprite.Sprite.__init__(self)
 
-    def bump(self):
-        self.speed = -SPEED
+            self.image = pygame.image.load('assets/base.png').convert_alpha()
+            self.image = pygame.transform.scale(self.image, (LARGURA_PISO , ALTURA_PISO))
+            self.mask = pygame.mask.from_surface(self.image)
 
-class Ground(pygame.sprite.Sprite):
-    def __init__(self, xpos):
-        pygame.sprite.Sprite.__init__(self)
+            self.rect = self.image.get_rect()
+            self.rect[0] = xpos
+            self.rect[1] = ALTURA_TELA - ALTURA_PISO
 
-        self.image = pygame.image.load('assets/base.png').convert_alpha()
-        self.image = pygame.transform.scale(self.image, (GROUND_WIDTH , GROUND_HEIGHT))
-        self.mask = pygame.mask.from_surface(self.image)
+        def update(self):
+            self.rect[0] -= VELOCIDADE_JOGO
 
-        self.rect = self.image.get_rect()
-        self.rect[0] = xpos
-        self.rect[1] = SCREEN_HEIGHT - GROUND_HEIGHT
+    class Cano(pygame.sprite.Sprite):
+        def __init__(self, invertido, xpos, ytamanho):
+            pygame.sprite.Sprite.__init__(self)
 
-    def update(self):
-        self.rect[0] -= GAME_SPEED
+            self.image = pygame.image.load('assets/pipe-red.png').convert_alpha()
+            self.image = pygame.transform.scale(self.image, (LARGURA_CANO , ALTURA_CANO))
 
-class Pipe(pygame.sprite.Sprite):
-    def __init__(self, inverted, xpos, ysize):
-        pygame.sprite.Sprite.__init__(self)
+            self.rect = self.image.get_rect()
+            self.rect[0] = xpos
 
-        self.image = pygame.image.load('assets/pipe-red.png').convert_alpha()
-        self.image = pygame.transform.scale(self.image, (PIPE_WIDTH , PIPE_HEIGHT))
+            self.rect[1] = ALTURA_TELA - ytamanho
 
-        self.rect = self.image.get_rect()
-        self.rect[0] = xpos
+            if invertido:
+                self.image = pygame.transform.flip(self.image, False, True)
+                self.rect[1] = - (self.rect[3] - ytamanho)
 
-        if inverted:
-            self.image = pygame.transform.flip(self.image, False, True)
-            self.rect[1] = - (self.rect[3] - ysize)
-        else:
-            self.rect[1] = SCREEN_HEIGHT - ysize
+            self.mask = pygame.mask.from_surface(self.image)
 
-        self.mask = pygame.mask.from_surface(self.image)
+        def update(self):
+            self.rect[0] -= VELOCIDADE_JOGO
 
-    def update(self):
-        self.rect[0] -= GAME_SPEED
+    def fora_tela(sprite):
+        return sprite.rect[0] < -(sprite.rect[2])
 
-def out_screen(sprite):
-    return sprite.rect[0] < -(sprite.rect[2])
+    def canos_aleatorios(xpos):
+        tamanho = random.randint(200, 500)
+        cano = Cano(False, xpos, tamanho)
+        cano_invertido = Cano(True, xpos, ALTURA_TELA - tamanho - ESPACO_FALTANTE_CANO)
 
-def random_pipes(xpos):
-    size = random.randint(100, 300)
-    pipe = Pipe(False, xpos, size)
-    pipe_inverted = Pipe(True, xpos, SCREEN_HEIGHT- size - PIPE_GAP)
+        return(cano, cano_invertido)
 
-    return(pipe, pipe_inverted)
+    # VARIÁVEIS FIXAS
+    LARGURA_TELA = 400
+    ALTURA_TELA = 800
 
-pygame.init()
-screen = pygame.display.set_mode ((SCREEN_WIDTH, SCREEN_HEIGHT))
+    VELOCIDADE_JOGO = 10
+    VELOCIDADE_PASSARO = 10
+    GRAVIDADE_PASSARO = 1
 
-BACKGROUND = pygame.image.load('assets/background-night.png')
-BACKGROUND = pygame.transform.scale(BACKGROUND,(SCREEN_WIDTH, SCREEN_HEIGHT))
+    LARGURA_PISO = 2 * LARGURA_TELA
+    ALTURA_PISO = 100
 
-# BIRD
-bird_group = pygame.sprite.Group()
-bird = Bird()
-bird_group.add(bird)
+    LARGURA_CANO = 80
+    ALTURA_CANO = 500
+    ESPACO_FALTANTE_CANO = 200
 
-# FLOOR
-ground_group = pygame.sprite.Group()
+    pygame.init()
+    pygame.font.init()
 
-for i in range(2):
-    ground = Ground(GROUND_WIDTH * i)
-    ground_group.add(ground)
+    tela = pygame.display.set_mode ((LARGURA_TELA, ALTURA_TELA))
 
-# PIPE
-pipe_group = pygame.sprite.Group()
+    FUNDO = pygame.image.load('assets/background-night.png')
+    FUNDO = pygame.transform.scale(FUNDO,(LARGURA_TELA, ALTURA_TELA))
+    PONTUACAO = pygame.font.SysFont('arial', 30)
 
-for i in range(2):
-    pipes = random_pipes(SCREEN_WIDTH * i + 800)
-    pipe_group.add(pipes[0])
-    pipe_group.add(pipes[1])
+    # PASSARO
+    grupo_passaros = pygame.sprite.Group()
+    passaro = Passaro()
+    grupo_passaros.add(passaro)
 
-clock = pygame.time.Clock()
+    # PISO
+    grupo_pisos = pygame.sprite.Group()
 
-# GAME LOOP
-while True:
-    clock.tick(20)
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            pygame.quit()
-        if event.type == KEYDOWN:
-            if event.key == K_SPACE:
-                bird.bump()
+    for i in range(2):
+        ground = Piso(LARGURA_PISO * i)
+        grupo_pisos.add(ground)
 
-    screen.blit(BACKGROUND,(0,0))
+    # CANO
+    grupo_canos = pygame.sprite.Group()
 
-    if out_screen(ground_group.sprites()[0]):
-        ground_group.remove(ground_group.sprites()[0])
+    # PONTOS_INICIAIS
+    pontos = 0
 
-        new_ground = Ground(GROUND_WIDTH - 20)
-        ground_group.add(new_ground)
+    for i in range(2):
+        canos = canos_aleatorios(LARGURA_TELA * i + 800)
 
-    if out_screen(pipe_group.sprites()[0]):
-        pipe_group.remove(pipe_group.sprites()[0])
-        pipe_group.remove(pipe_group.sprites()[0])
+        grupo_canos.add(canos[0]) # CANO NORMAL
+        grupo_canos.add(canos[1]) # CANO INVERTIDO
 
-        pipes = random_pipes(SCREEN_WIDTH * 2)
+    clock = pygame.time.Clock()
 
-        pipe_group.add(pipes[0])
-        pipe_group.add(pipes[1])
+    # GAME LOOP
+    while True:
+        clock.tick(20)
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+            if event.type == KEYDOWN:
+                if event.key == K_SPACE:
+                    passaro.voar()
 
-    bird_group.update()
-    ground_group.update()
-    pipe_group.update()
+        tela.blit(FUNDO, (0, 0))
 
-    bird_group.draw(screen)
-    ground_group.draw(screen)
-    pipe_group.draw(screen)
+        if fora_tela(grupo_pisos.sprites()[0]):
+            grupo_pisos.remove(grupo_pisos.sprites()[0])
 
-    # GAMEOVER
-    if (pygame.sprite.groupcollide(bird_group, ground_group, False, False, pygame.sprite.collide_mask) or 
-       pygame.sprite.groupcollide(bird_group, pipe_group, False, False, pygame.sprite.collide_mask)):
-        break
+            novo_piso = Piso(LARGURA_PISO - 20)
+            grupo_pisos.add(novo_piso)
 
-    pygame.display.update()
+        if fora_tela(grupo_canos.sprites()[0]):
+            grupo_canos.remove(grupo_canos.sprites()[0])
+            grupo_canos.remove(grupo_canos.sprites()[0])
+
+            canos = canos_aleatorios(LARGURA_TELA * 2)
+
+            grupo_canos.add(canos[0]) # CANO NORMAL
+            grupo_canos.add(canos[1]) # CANO INVERTIDO
+            pontos += 1
+
+        grupo_passaros.update()
+        grupo_pisos.update()
+        grupo_canos.update()
+
+        grupo_passaros.draw(tela)
+        grupo_canos.draw(tela)
+        grupo_pisos.draw(tela)
+
+        tela_pontos = PONTUACAO.render(f"Pontuação: {pontos}", 1, (255, 255, 255))
+
+        tela.blit(tela_pontos, (0, 0))
+
+        pygame.display.update()
+
+        # GAMEOVER
+        if (pygame.sprite.groupcollide(grupo_passaros, grupo_pisos, False, False, pygame.sprite.collide_mask) or
+        pygame.sprite.groupcollide(grupo_passaros, grupo_canos, False, False, pygame.sprite.collide_mask)):
+            break
+
+if __name__ == "__main__":
+    main()
