@@ -1,98 +1,102 @@
 import pygame, random
 from pygame.locals import *
 from pygame.sprite import spritecollide
+import os
+
+# VARIÁVEIS GLOBAIS FIXAS
+LARGURA_TELA = 400
+ALTURA_TELA = 800
+
+VELOCIDADE_JOGO = 10
+VELOCIDADE_PASSARO = 10
+GRAVIDADE_PASSARO = 1
+
+LARGURA_PISO = 2 * LARGURA_TELA
+ALTURA_PISO = 100
+
+LARGURA_CANO = 80
+ALTURA_CANO = 500
+ESPACO_FALTANTE_CANO = 200
+
+class Passaro(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+
+        # IMAGENS DO PASSARO DESCONSIDERANDO ESPAÇOS EM BRANCO DA IMAGEM PNG
+        self.imagens = [pygame.image.load('assets/yellowbird-upflap.png').convert_alpha(),
+                    pygame.image.load('assets/yellowbird-midflap.png').convert_alpha(),
+                    pygame.image.load('assets/yellowbird-downflap.png').convert_alpha()]
+
+        self.velocidade = VELOCIDADE_PASSARO
+        self.imagem_atual = 0
+        self.imagem = pygame.image.load('assets/yellowbird-upflap.png').convert_alpha()
+        self.mask = pygame.mask.from_surface(self.imagem)
+        self.rect = self.imagem.get_rect()
+
+        # MEIO DA TELA
+        self.rect[0] = LARGURA_TELA / 2
+        self.rect[1] = ALTURA_TELA / 2
+
+    def update(self):
+        self.imagem_atual = (self.imagem_atual + 1) % 3
+        self.image = self.imagens[self.imagem_atual]
+
+        self.velocidade += GRAVIDADE_PASSARO
+
+        self.rect[1] += self.velocidade
+
+    def voar(self):
+        self.velocidade = -VELOCIDADE_PASSARO
+
+class Piso(pygame.sprite.Sprite):
+    def __init__(self, xpos):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.image = pygame.image.load('assets/base.png').convert_alpha()
+        self.image = pygame.transform.scale(self.image, (LARGURA_PISO , ALTURA_PISO))
+        self.mask = pygame.mask.from_surface(self.image)
+
+        self.rect = self.image.get_rect()
+        self.rect[0] = xpos
+        self.rect[1] = ALTURA_TELA - ALTURA_PISO
+
+    def update(self):
+        self.rect[0] -= VELOCIDADE_JOGO
+
+class Cano(pygame.sprite.Sprite):
+    def __init__(self, invertido, xpos, ytamanho):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.image = pygame.image.load('assets/pipe-red.png').convert_alpha()
+        self.image = pygame.transform.scale(self.image, (LARGURA_CANO , ALTURA_CANO))
+
+        self.rect = self.image.get_rect()
+        self.rect[0] = xpos
+
+        self.rect[1] = ALTURA_TELA - ytamanho
+
+        if invertido:
+            self.image = pygame.transform.flip(self.image, False, True)
+            self.rect[1] = - (self.rect[3] - ytamanho)
+
+        self.mask = pygame.mask.from_surface(self.image)
+
+        print(self.rect[0], self.rect[1])
+
+    def update(self): 
+        self.rect[0] -= VELOCIDADE_JOGO
+
+def fora_tela(sprite):
+    return sprite.rect[0] < -(sprite.rect[2])
+
+def canos_aleatorios(xpos):
+    tamanho = random.randint(200, 500)
+    cano = Cano(False, xpos, tamanho)
+    cano_invertido = Cano(True, xpos, ALTURA_TELA - tamanho - ESPACO_FALTANTE_CANO)
+
+    return(cano, cano_invertido)
 
 def main():
-    class Passaro(pygame.sprite.Sprite):
-        def __init__(self):
-            pygame.sprite.Sprite.__init__(self)
-
-            # IMAGENS DO PASSARO DESCONSIDERANDO ESPAÇOS EM BRANCO DA IMAGEM PNG
-            self.imagens = [pygame.image.load('assets/yellowbird-upflap.png').convert_alpha(),
-                        pygame.image.load('assets/yellowbird-midflap.png').convert_alpha(),
-                        pygame.image.load('assets/yellowbird-downflap.png').convert_alpha()]
-
-            self.velocidade = VELOCIDADE_PASSARO
-            self.imagem_atual = 0
-            self.imagem = pygame.image.load('assets/yellowbird-upflap.png').convert_alpha()
-            self.mask = pygame.mask.from_surface(self.imagem)
-            self.rect = self.imagem.get_rect()
-
-            # MEIO DA TELA
-            self.rect[0] = LARGURA_TELA / 2
-            self.rect[1] = ALTURA_TELA / 2
-
-        def update(self):
-            self.imagem_atual = (self.imagem_atual + 1) % 3
-            self.image = self.imagens[self.imagem_atual]
-
-            self.velocidade += GRAVIDADE_PASSARO
-
-            self.rect[1] += self.velocidade
-
-        def voar(self):
-            self.velocidade = -VELOCIDADE_PASSARO
-
-    class Piso(pygame.sprite.Sprite):
-        def __init__(self, xpos):
-            pygame.sprite.Sprite.__init__(self)
-
-            self.image = pygame.image.load('assets/base.png').convert_alpha()
-            self.image = pygame.transform.scale(self.image, (LARGURA_PISO , ALTURA_PISO))
-            self.mask = pygame.mask.from_surface(self.image)
-
-            self.rect = self.image.get_rect()
-            self.rect[0] = xpos
-            self.rect[1] = ALTURA_TELA - ALTURA_PISO
-
-        def update(self):
-            self.rect[0] -= VELOCIDADE_JOGO
-
-    class Cano(pygame.sprite.Sprite):
-        def __init__(self, invertido, xpos, ytamanho):
-            pygame.sprite.Sprite.__init__(self)
-
-            self.image = pygame.image.load('assets/pipe-red.png').convert_alpha()
-            self.image = pygame.transform.scale(self.image, (LARGURA_CANO , ALTURA_CANO))
-
-            self.rect = self.image.get_rect()
-            self.rect[0] = xpos
-
-            self.rect[1] = ALTURA_TELA - ytamanho
-
-            if invertido:
-                self.image = pygame.transform.flip(self.image, False, True)
-                self.rect[1] = - (self.rect[3] - ytamanho)
-
-            self.mask = pygame.mask.from_surface(self.image)
-
-        def update(self):
-            self.rect[0] -= VELOCIDADE_JOGO
-
-    def fora_tela(sprite):
-        return sprite.rect[0] < -(sprite.rect[2])
-
-    def canos_aleatorios(xpos):
-        tamanho = random.randint(200, 500)
-        cano = Cano(False, xpos, tamanho)
-        cano_invertido = Cano(True, xpos, ALTURA_TELA - tamanho - ESPACO_FALTANTE_CANO)
-
-        return(cano, cano_invertido)
-
-    # VARIÁVEIS FIXAS
-    LARGURA_TELA = 400
-    ALTURA_TELA = 800
-
-    VELOCIDADE_JOGO = 10
-    VELOCIDADE_PASSARO = 10
-    GRAVIDADE_PASSARO = 1
-
-    LARGURA_PISO = 2 * LARGURA_TELA
-    ALTURA_PISO = 100
-
-    LARGURA_CANO = 80
-    ALTURA_CANO = 500
-    ESPACO_FALTANTE_CANO = 200
 
     pygame.init()
     pygame.font.init()
@@ -100,7 +104,7 @@ def main():
     tela = pygame.display.set_mode ((LARGURA_TELA, ALTURA_TELA))
 
     FUNDO = pygame.image.load('assets/background-night.png')
-    FUNDO = pygame.transform.scale(FUNDO,(LARGURA_TELA, ALTURA_TELA))
+    FUNDO = pygame.transform.scale(FUNDO, (LARGURA_TELA, ALTURA_TELA))
     PONTUACAO = pygame.font.SysFont('arial', 30)
 
     # PASSARO
